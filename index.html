@@ -1521,19 +1521,22 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
 }
 .tutorial-backdrop {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.65);
+  background: rgba(0,0,0,.7);
   pointer-events: auto;
   z-index: 10000;
 }
+.tutorial-backdrop.has-highlight {
+  background: transparent;
+  pointer-events: none;
+}
 .tutorial-highlight {
   position: fixed;
-  border: 3px solid var(--primary);
+  border: 3px solid #60a5fa;
   border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgba(0,0,0,.65), 0 0 30px 8px rgba(255,255,255,.35), 0 0 0 8px rgba(37,99,235,.3);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.7), 0 0 0 6px rgba(96,165,250,.4);
   z-index: 10001;
   pointer-events: none;
-  transition: all .35s ease;
-  background: rgba(255,255,255,.08);
+  transition: all .4s ease;
 }
 .tutorial-tooltip {
   position: fixed;
@@ -5013,30 +5016,25 @@ function Tutorial({ active, step, onNext, onPrev, onClose }) {
   const stepData = TUTORIAL_STEPS[step];
 
   React.useEffect(() => {
-    if (!active || !stepData) return;
-    const find = () => {
+    if (!active || !stepData) { setPos(null); return; }
+    let cancelled = false;
+    const measure = () => {
+      if (cancelled) return;
       const selectors = stepData.target.split(', ');
       let el = null;
-      for (const sel of selectors) {
-        el = document.querySelector(sel);
-        if (el) break;
-      }
+      for (const sel of selectors) { el = document.querySelector(sel); if (el) break; }
       if (!el) { setPos(null); return; }
       const rect = el.getBoundingClientRect();
       const isVisible = rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.left < window.innerWidth;
       if (!isVisible) { setPos(null); return; }
-      if (stepData.scrollTo) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-      setTimeout(() => {
-        const r = el.getBoundingClientRect();
-        setPos({ top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12 });
-      }, 350);
+      if (!stepData.scrollTo) window.scrollTo({ top: 0, behavior: 'instant' });
+      else el.scrollIntoView({ behavior: 'instant', block: 'center' });
+      const r = el.getBoundingClientRect();
+      setPos({ top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12 });
     };
-    const timer = setTimeout(find, 200);
-    return () => clearTimeout(timer);
+    setPos(null);
+    const t = setTimeout(measure, 80);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [active, step, stepData]);
 
   if (!active || !stepData) return null;
@@ -5068,7 +5066,7 @@ function Tutorial({ active, step, onNext, onPrev, onClose }) {
       {pos && (
         <div className="tutorial-highlight" style={pos} />
       )}
-      <div className="tutorial-backdrop" />
+      <div className={'tutorial-backdrop' + (pos ? ' has-highlight' : '')} />
       <div className="tutorial-tooltip" style={tooltipStyle}>
         <div className="tutorial-progress">
           {TUTORIAL_STEPS.map((_, i) => (
