@@ -1521,7 +1521,7 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
 }
 .tutorial-backdrop {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.45);
+  background: rgba(0,0,0,.65);
   pointer-events: auto;
   z-index: 10000;
 }
@@ -1529,10 +1529,11 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   position: fixed;
   border: 3px solid var(--primary);
   border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgba(0,0,0,.45), 0 0 24px rgba(37,99,235,.4);
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.65), 0 0 30px 8px rgba(255,255,255,.35), 0 0 0 8px rgba(37,99,235,.3);
   z-index: 10001;
   pointer-events: none;
   transition: all .35s ease;
+  background: rgba(255,255,255,.08);
 }
 .tutorial-tooltip {
   position: fixed;
