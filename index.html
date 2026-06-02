@@ -573,6 +573,12 @@ input, select, textarea { font-family: inherit; font-size: inherit; color: inher
   border-color: var(--primary);
 }
 .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn-outline {
+  background: transparent;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.btn-outline:hover { background: var(--primary-soft); }
 .btn-danger {
   background: var(--niv3);
   color: white;
@@ -2522,8 +2528,8 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete }) {
           </div>
         </div>
         <div className="detail-actions">
-          <button className={'btn ' + (editing ? 'btn-primary' : '')} onClick={() => { setEditing(!editing); if (editing) toast('Wijzigingen opgeslagen'); }}>
-            <Icon name={editing ? 'check' : 'edit'} size={14}/> {editing ? 'Klaar' : 'Bewerken'}
+          <button className={'btn ' + (editing ? 'btn-primary' : 'btn-outline')} onClick={() => { setEditing(!editing); if (editing) toast('Wijzigingen opgeslagen'); else toast('Bewerkingsmodus actief — pas velden aan'); }}>
+            <Icon name={editing ? 'check' : 'edit'} size={14}/> {editing ? 'Opslaan' : 'Bewerken'}
           </button>
           <button className="btn" onClick={onDelete} title="Dossier verwijderen">
             <Icon name="trash" size={14}/>
@@ -2961,12 +2967,51 @@ function TabCLB({ student, editing, patch }) {
           )}
         </div>
         <div className="field mt-2">
-          <label className="field-label">Naam consulter / trajecter</label>
-          {editing ? (
-            <input className="field-input" value={student.clbNaam || ''} onChange={e => patch({ clbNaam: e.target.value })} placeholder="Voor- en achternaam"/>
-          ) : (
-            <div className="field-value">{student.clbNaam || <span className="muted">—</span>}</div>
-          )}
+          <label className="field-label">Naam consulter(s) / trajecter(s)</label>
+          {(() => {
+            const namen = (student.clbNaam || '').split(',').map(n => n.trim()).filter(Boolean);
+            const [newName, setNewName] = React.useState('');
+            const addName = () => {
+              const n = newName.trim();
+              if (!n) return;
+              const updated = [...namen, n].join(', ');
+              patch({ clbNaam: updated }, { type: 'CLB-medewerker toegevoegd', detail: n });
+              setNewName('');
+            };
+            const removeName = (idx) => {
+              const removed = namen[idx];
+              const updated = namen.filter((_, i) => i !== idx).join(', ');
+              patch({ clbNaam: updated }, { type: 'CLB-medewerker verwijderd', detail: removed });
+            };
+            return editing ? (
+              <div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: namen.length ? 8 : 0 }}>
+                  {namen.map((n, i) => (
+                    <span key={i} className="badge badge-lg badge-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {n}
+                      <button onClick={() => removeName(i)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: '0 2px', fontSize: 14, lineHeight: 1, opacity: .7 }}>×</button>
+                    </span>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input className="field-input" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Naam toevoegen…"
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addName(); } }}
+                    style={{ flex: 1 }}/>
+                  <button className="btn btn-sm btn-primary" onClick={addName} disabled={!newName.trim()}>
+                    <Icon name="plus" size={12}/> Toevoegen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="field-value">
+                {namen.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {namen.map((n, i) => <span key={i} className="badge badge-lg">{n}</span>)}
+                  </div>
+                ) : <span className="muted">—</span>}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -3045,22 +3090,20 @@ function TabExtern({ student, editing, patch }) {
           const checked = !!entry.active;
           return (
             <div key={d.key} className={'check-item' + (checked ? ' checked' : '')} style={{ flexDirection: 'column', alignItems: 'stretch', cursor: 'default' }}>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 11, cursor: editing ? 'pointer' : 'default' }}>
-                <input type="checkbox" checked={checked} disabled={!editing} onChange={e => toggle(d.key, e.target.checked)}/>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 11, cursor: 'pointer' }}>
+                <input type="checkbox" checked={checked} onChange={e => toggle(d.key, e.target.checked)}/>
                 <div style={{ flex: 1 }}>
                   <div className="check-label">{d.label}</div>
                   <div className="check-desc">{d.desc}</div>
                 </div>
               </label>
               {checked && (
-                editing ? (
                   <textarea
                     className="check-note"
                     placeholder="Optionele notitie…"
                     value={entry.notitie || ''}
                     onChange={e => setNote(d.key, e.target.value)}
                   />
-                ) : entry.notitie ? <div className="check-note" style={{ background: 'var(--bg-subtle)' }}>{entry.notitie}</div> : null
               )}
             </div>
           );
@@ -3087,6 +3130,11 @@ function TabContact({ student, patch }) {
     patch({ contactLog: next }, { type: 'Contact gelogd', detail: `${methode} · ${metWie} · ${bereikbaar === 'Ja' ? 'Bereikt' : 'Niet bereikt'}` });
     setNotitie('');
     toast('Contact gelogd');
+  }
+  function removeEntry(id) {
+    if (!confirm('Dit contact verwijderen?')) return;
+    patch({ contactLog: log.filter(e => e.id !== id) });
+    toast('Contact verwijderd');
   }
 
   const METHODES = ['Telefonisch', 'SMS / WhatsApp', 'E-mail', 'Huisbezoek', 'Op school', 'Brief'];
@@ -3163,6 +3211,7 @@ function TabContact({ student, patch }) {
                   <th>Met wie</th>
                   <th>Bereikt</th>
                   <th>Notitie</th>
+                  <th style={{ width: 40 }}></th>
                 </tr>
               </thead>
               <tbody>
@@ -3181,6 +3230,7 @@ function TabContact({ student, patch }) {
                       </span>
                     </td>
                     <td style={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.notitie || <span className="muted">—</span>}</td>
+                    <td><button className="note-delete" onClick={() => removeEntry(e.id)} title="Verwijderen"><Icon name="trash" size={13}/></button></td>
                   </tr>
                 ))}
               </tbody>
