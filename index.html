@@ -2186,36 +2186,6 @@ function Dashboard({ state, onOpenStudent, onNavigate }) {
         <div className="card">
           <div className="card-header">
             <div>
-              <div className="card-title">Recente activiteit</div>
-              <div className="card-subtitle">Laatste 5 gewijzigde fiches</div>
-            </div>
-          </div>
-          <div className="activity-list">
-            {recent.length === 0 && (
-              <div className="empty" style={{ padding: 32 }}>
-                <div className="empty-text">Nog geen activiteit.</div>
-              </div>
-            )}
-            {recent.map(s => (
-              <div className="activity-row" key={s.id} onClick={() => onOpenStudent(s.id)}>
-                <div className="activity-icon">
-                  <Icon name="activity" size={16} />
-                </div>
-                <div className="activity-text">
-                  <div className="activity-title">{s.naam} <span className="muted" style={{ fontWeight: 400 }}>· {s.klas}</span></div>
-                  <div className="activity-meta">{s.onderwijsvorm} · bijgewerkt {fmtDate(s.laatsteUpdate)}</div>
-                </div>
-                <span className={'badge ' + nivClass(s.niveau)}>
-                  <span className="badge-dot"></span> N{s.niveau}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <div>
               <div className="card-title">Leerlingen per onderwijsvorm</div>
               <div className="card-subtitle">Verdeling over de drie niveaus</div>
             </div>
@@ -2248,6 +2218,36 @@ function Dashboard({ state, onOpenStudent, onNavigate }) {
                 );
               })}
             </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Recente activiteit</div>
+              <div className="card-subtitle">Laatste 5 gewijzigde fiches</div>
+            </div>
+          </div>
+          <div className="activity-list">
+            {recent.length === 0 && (
+              <div className="empty" style={{ padding: 32 }}>
+                <div className="empty-text">Nog geen activiteit.</div>
+              </div>
+            )}
+            {recent.map(s => (
+              <div className="activity-row" key={s.id} onClick={() => onOpenStudent(s.id)}>
+                <div className="activity-icon">
+                  <Icon name="activity" size={16} />
+                </div>
+                <div className="activity-text">
+                  <div className="activity-title">{s.naam} <span className="muted" style={{ fontWeight: 400 }}>· {s.klas}</span></div>
+                  <div className="activity-meta">{s.onderwijsvorm} · bijgewerkt {fmtDate(s.laatsteUpdate)}</div>
+                </div>
+                <span className={'badge ' + nivClass(s.niveau)}>
+                  <span className="badge-dot"></span> N{s.niveau}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -5441,6 +5441,7 @@ const TUTORIAL_STEPS = [
     text: 'Deze grafiek toont hoeveel leerlingen er per onderwijsvorm (DBSO, OKAN, enz.) in opvolging zijn en op welk niveau ze zitten. Je kunt in één oogopslag zien waar de meeste aandacht nodig is.',
     navigate: 'dashboard',
     scrollTo: true,
+    tooltipSide: 'right',
   },
   {
     target: '.nav-item:nth-child(3)',
@@ -5487,6 +5488,7 @@ const TUTORIAL_STEPS = [
     navigateToStudent: true,
     selectTab: 'tijdlijn',
     scrollTo: true,
+    tooltipSide: 'right',
   },
   {
     target: '.nav-item:nth-child(4)',
@@ -5572,7 +5574,11 @@ function Tutorial({ active, step, onNext, onPrev, onClose }) {
   const isFirst = step === 0;
 
   const tooltipStyle = {};
-  if (pos) {
+  const stepData = TUTORIAL_STEPS[step];
+  if (pos && stepData && stepData.tooltipSide === 'right') {
+    tooltipStyle.top = Math.max(12, pos.top) + 'px';
+    tooltipStyle.left = Math.min(pos.left + pos.width + 14, window.innerWidth - 380) + 'px';
+  } else if (pos) {
     const below = pos.top + pos.height + 14;
     const above = pos.top - 14;
     const fitsBelow = below + 250 < window.innerHeight;
