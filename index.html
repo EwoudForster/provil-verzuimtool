@@ -1553,7 +1553,6 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   box-shadow: 0 0 0 9999px rgba(0,0,0,.7), 0 0 0 6px rgba(96,165,250,.4);
   z-index: 10001;
   pointer-events: none;
-  transition: all .4s ease;
 }
 .tutorial-tooltip {
   position: fixed;
@@ -5531,7 +5530,9 @@ function Tutorial({ active, step, onNext, onPrev, onClose }) {
       if (!stepData.scrollTo) window.scrollTo({ top: 0, behavior: 'instant' });
       else el.scrollIntoView({ behavior: 'instant', block: 'center' });
       const r = el.getBoundingClientRect();
-      setDisplay({ step, pos: { top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12 }, title: stepData.title, text: stepData.text });
+      const pad = 6;
+      const clampL = Math.max(0, r.left - pad);
+      setDisplay({ step, pos: { top: r.top - pad, left: clampL, width: r.width + pad + (r.left - clampL) + pad, height: r.height + pad * 2 }, title: stepData.title, text: stepData.text });
     };
     const t = setTimeout(measure, 60);
     return () => { cancelled = true; clearTimeout(t); };
