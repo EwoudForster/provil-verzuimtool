@@ -5619,7 +5619,12 @@ function App() {
     } else if (stepData.navigate) {
       setRoute(stepData.navigate);
     }
-    setSidebarOpen(!!stepData.openSidebar);
+    // Only open sidebar on mobile (< 768px) so overlay blur doesn't activate on desktop
+    if (stepData.openSidebar && window.innerWidth < 768) {
+      setSidebarOpen(true);
+    } else {
+      setSidebarOpen(false);
+    }
   }
   function startTutorial() {
     setSidebarOpen(false);
