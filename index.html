@@ -1399,6 +1399,9 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   .clb-mobile-cards { display: flex !important; }
   .students-desktop { display: none !important; }
   .students-mobile { display: flex !important; }
+  .data-table th, .data-table td { padding: 8px 8px; font-size: 12px; }
+  .data-table .badge { font-size: 10px; padding: 2px 6px; }
+  .hide-mobile { display: none !important; }
   .tabs { -webkit-overflow-scrolling: touch; scrollbar-width: none; position: sticky; top: 0; z-index: 20; background: var(--bg); padding-top: 4px; }
   .tabs::-webkit-scrollbar { display: none; }
 }
@@ -4700,12 +4703,12 @@ function Statistieken({ state }) {
               <tr>
                 <th>#</th>
                 <th>Naam</th>
-                <th>Klas</th>
-                <th>Onderwijsvorm</th>
-                <th style={{ textAlign: 'center' }}>B-codes</th>
-                <th style={{ textAlign: 'center' }}>D-codes</th>
-                <th>Niveau</th>
-                <th>Fase</th>
+                <th className="hide-mobile">Klas</th>
+                <th className="hide-mobile">Onderwijsvorm</th>
+                <th style={{ textAlign: 'center' }}>B</th>
+                <th style={{ textAlign: 'center' }}>D</th>
+                <th>Niv.</th>
+                <th className="hide-mobile">Fase</th>
               </tr>
             </thead>
             <tbody>
@@ -4715,12 +4718,12 @@ function Statistieken({ state }) {
                   <tr key={s.id}>
                     <td>{i + 1}</td>
                     <td style={{ fontWeight: 600 }}>{s.naam}</td>
-                    <td>{s.klas}</td>
-                    <td><span className="badge">{s.onderwijsvorm}</span></td>
+                    <td className="hide-mobile">{s.klas}</td>
+                    <td className="hide-mobile"><span className="badge">{s.onderwijsvorm}</span></td>
                     <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--niv3)' }}>{s.bcodes}</td>
                     <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.dcodes}</td>
                     <td><span className={'badge ' + nivClass(niv)}><span className="badge-dot"></span> N{niv}</span></td>
-                    <td>{s.fase || '—'}</td>
+                    <td className="hide-mobile">{s.fase || '—'}</td>
                   </tr>
                 );
               })}
@@ -4738,11 +4741,11 @@ function Statistieken({ state }) {
               <tr>
                 <th>#</th>
                 <th>Naam</th>
-                <th>Klas</th>
-                <th>Onderwijsvorm</th>
-                <th style={{ textAlign: 'center' }}>B-codes</th>
-                <th style={{ textAlign: 'center' }}>D-codes</th>
-                <th>Niveau</th>
+                <th className="hide-mobile">Klas</th>
+                <th className="hide-mobile">Onderwijsvorm</th>
+                <th style={{ textAlign: 'center' }}>B</th>
+                <th style={{ textAlign: 'center' }}>D</th>
+                <th>Niv.</th>
               </tr>
             </thead>
             <tbody>
@@ -4752,8 +4755,8 @@ function Statistieken({ state }) {
                   <tr key={s.id}>
                     <td>{i + 1}</td>
                     <td style={{ fontWeight: 600 }}>{s.naam}</td>
-                    <td>{s.klas}</td>
-                    <td><span className="badge">{s.onderwijsvorm}</span></td>
+                    <td className="hide-mobile">{s.klas}</td>
+                    <td className="hide-mobile"><span className="badge">{s.onderwijsvorm}</span></td>
                     <td style={{ textAlign: 'center', fontWeight: 700 }}>{s.bcodes}</td>
                     <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--warning)' }}>{s.dcodes}</td>
                     <td><span className={'badge ' + nivClass(niv)}><span className="badge-dot"></span> N{niv}</span></td>
