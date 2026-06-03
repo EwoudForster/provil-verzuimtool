@@ -2585,7 +2585,6 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete, can }) {
   const [tab, setTab] = React.useState('overzicht');
   const [editing, setEditing] = React.useState(false);
   const [showPdf, setShowPdf] = React.useState(false);
-  const [snapshotOnEdit, setSnapshotOnEdit] = React.useState({});
   const toast = useToast();
   const niveau = calcNiveau(student.bcodes, student.dcodes, state.thresholds, student.onderwijsvorm);
 
@@ -2597,15 +2596,31 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete, can }) {
     onUpdate(next);
   }
 
+  const editSnapshotRef = React.useRef({});
   function startEditing() {
-    setSnapshotOnEdit({ hypothese: student.hypothese || '' });
+    editSnapshotRef.current = {
+      hypothese: student.hypothese || '',
+      afsprakenConsult: student.afsprakenConsult || '',
+      doelAfspraken: student.doelAfspraken || '',
+      clbDoel: student.clbDoel || '',
+    };
     setEditing(true);
     toast('Bewerkingsmodus actief — pas velden aan');
   }
   function stopEditing() {
+    const snap = editSnapshotRef.current;
     const logs = [];
-    if ((student.hypothese || '') !== snapshotOnEdit.hypothese) {
+    if ((student.hypothese || '') !== snap.hypothese) {
       logs.push({ type: 'Hypothese gewijzigd', detail: student.hypothese || '(leeggemaakt)' });
+    }
+    if ((student.afsprakenConsult || '') !== snap.afsprakenConsult) {
+      logs.push({ type: 'Afspraken op consult bijgewerkt', detail: (student.afsprakenConsult || '').slice(0, 80) });
+    }
+    if ((student.doelAfspraken || '') !== snap.doelAfspraken) {
+      logs.push({ type: 'Doel afspraken bijgewerkt', detail: (student.doelAfspraken || '').slice(0, 80) });
+    }
+    if ((student.clbDoel || '') !== snap.clbDoel) {
+      logs.push({ type: 'CLB-doel bijgewerkt', detail: (student.clbDoel || '').slice(0, 80) });
     }
     if (logs.length > 0) {
       const next = { ...student, laatsteUpdate: todayISO() };
@@ -3057,7 +3072,7 @@ function TabActies({ student, editing, patch }) {
           <h4 style={{ marginTop: 0, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>Gemaakte afspraken op consult</h4>
           <p className="muted" style={{ fontSize: 11.5, margin: '-6px 0 8px' }}>Wordt gelogd in de tijdlijn bij opslaan.</p>
           {editing ? (
-            <textarea className="field-textarea" value={student.afsprakenConsult || ''} onChange={e => patch({ afsprakenConsult: e.target.value })} onBlur={e => onAfsprakenBlur(e.target.value)} placeholder="Beschrijf welke afspraken er gemaakt zijn…"/>
+            <textarea className="field-textarea" value={student.afsprakenConsult || ''} onChange={e => patch({ afsprakenConsult: e.target.value })} placeholder="Beschrijf welke afspraken er gemaakt zijn…"/>
           ) : (
             <div className="field-value" style={{ whiteSpace: 'pre-wrap' }}>{student.afsprakenConsult || <span className="muted">Nog niets ingevuld.</span>}</div>
           )}
