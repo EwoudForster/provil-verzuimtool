@@ -5548,11 +5548,14 @@ function Tutorial({ active, step, onNext, onPrev, onClose }) {
   if (pos) {
     const below = pos.top + pos.height + 14;
     const above = pos.top - 14;
-    const fitsBelow = below + 200 < window.innerHeight;
+    const fitsBelow = below + 250 < window.innerHeight;
+    const fitsAbove = above - 250 > 0;
     if (fitsBelow) {
       tooltipStyle.top = below + 'px';
-    } else {
+    } else if (fitsAbove) {
       tooltipStyle.bottom = (window.innerHeight - above) + 'px';
+    } else {
+      tooltipStyle.top = Math.max(12, Math.min(below, window.innerHeight - 270)) + 'px';
     }
     const leftPos = Math.min(Math.max(12, pos.left), window.innerWidth - 380);
     tooltipStyle.left = leftPos + 'px';
