@@ -1359,12 +1359,13 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   .filterbar { flex-direction: column; gap: 8px; }
   .search-input { min-width: 100%; }
   .dropdown { min-width: 100%; }
-  .detail-header { flex-direction: column; padding: 16px; }
+  .detail-header { flex-direction: column; padding: 16px; align-items: center; text-align: center; }
   .detail-header-info { flex-direction: column; align-items: center; text-align: center; }
   .detail-badges { justify-content: center; }
   .detail-actions { justify-content: center; width: 100%; }
   .detail-avatar { width: 48px; height: 48px; font-size: 18px; border-radius: 12px; }
   .detail-name { font-size: 18px; }
+  .print-header { display: none; }
   .detail-grid { grid-template-columns: 1fr; }
   .tabs { gap: 0; }
   .tab { padding: 9px 10px; font-size: 12px; }
@@ -1455,6 +1456,7 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   .print-section .opmerking-item .text { font-size: 11px; color: #374151; }
 }
 .print-only { display: none; }
+.print-header { display: none; }
 .print-section-title { display: none; }
 
 /* PDF Preview Overlay */
