@@ -1390,9 +1390,12 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   .activity-row { padding: 10px 14px; }
   .toast { min-width: 200px; font-size: 12px; }
   .toast-container { bottom: 12px; right: 12px; left: 12px; }
+  .app { min-height: auto; }
   .table-wrap { border-radius: var(--radius); }
   .scroll-x { -webkit-overflow-scrolling: touch; }
   .scroll-x > table.data-table { min-width: 700px; }
+  .excel-wrap { display: none; }
+  .clb-mobile-cards { display: flex !important; }
   .tabs { -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .tabs::-webkit-scrollbar { display: none; }
 }
@@ -4017,6 +4020,65 @@ function CLBOverview({ state, onOpenStudent, onUpdateStudent, onAddStudent }) {
             )}
           </table>
         </div>
+      </div>
+
+      {/* Mobile card view */}
+      <div className="clb-mobile-cards" style={{ display: 'none', flexDirection: 'column', gap: 10 }}>
+        {sorted.length === 0 && (
+          <div className="card card-pad">
+            <div className="empty">
+              <div className="empty-title">Geen dossiers</div>
+            </div>
+          </div>
+        )}
+        {sorted.map((s, i) => {
+          const t = thresholds[s.onderwijsvorm] || defaultThresholds()[s.onderwijsvorm];
+          const bHigh = s.bcodes >= t.niv3.b;
+          return (
+            <div key={s.id} className={'card ' + (s.niveau === 3 ? 'row-niv3' : s.niveau === 2 ? 'row-niv2' : '')} style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => onOpenStudent(s.id)}>
+                    <div className="student-avatar">{initials(s.naam)}</div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{s.naam}</div>
+                      <div className="muted" style={{ fontSize: 11 }}>{s.klas} · {s.onderwijsvorm}</div>
+                    </div>
+                  </div>
+                  <span className={'badge ' + nivClass(s.niveau)}>N{s.niveau}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                  <div style={{ background: 'var(--bg-subtle)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>B-codes</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: bHigh ? 'var(--niv3)' : 'var(--text)' }}>{s.bcodes}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-subtle)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>D-codes</div>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>{s.dcodes}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  {s.fase && <span className={'badge fase-' + s.fase.toLowerCase().replace(/ /g, '-')}>{s.fase}</span>}
+                  {s.clbNaam && <span className="badge">{s.clbNaam}</span>}
+                  {s.clbType && <span className="badge badge-primary">{s.clbType}</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => onOpenStudent(s.id)}>
+                    <Icon name="folder" size={12}/> Dossier
+                  </button>
+                  <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => openNote(s)}>
+                    <Icon name="edit" size={12}/> Notitie
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {sorted.length > 0 && (
+          <div className="muted" style={{ textAlign: 'center', fontSize: 12, padding: 8 }}>
+            {sorted.length} dossier(s) · {totalB} B-codes · {totalD} D-codes
+          </div>
+        )}
       </div>
 
       <p className="muted mt-2" style={{ fontSize: 12 }}>
