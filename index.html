@@ -4855,6 +4855,7 @@ function Gebruikers({ state, onUpdateState }) {
   const [fRol, setFRol] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('users'); // 'users' | 'rollen'
   const [newRolNaam, setNewRolNaam] = React.useState('');
+  const [selectedRol, setSelectedRol] = React.useState(null);
 
   const rollen = getRollen(state);
   const users = state.users || [];
@@ -5026,88 +5027,132 @@ function Gebruikers({ state, onUpdateState }) {
       </>}
 
       {activeTab === 'rollen' && <>
-        {/* Rollen beheren */}
-        <div className="card section-block">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Rollen</div>
-              <div className="card-subtitle">Maak rollen aan of verwijder ze</div>
-            </div>
-          </div>
-          <div style={{ padding: '0 18px 18px' }}>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-              {rollen.map(r => (
-                <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13 }}>{r}</span>
-                  <span className="muted" style={{ fontSize: 11 }}>({perRol[r] || 0})</span>
-                  {r !== 'Zorgcoordinator' && (
-                    <button onClick={() => deleteRol(r)} style={{ background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', padding: '0 2px', fontSize: 16, lineHeight: 1 }} title="Rol verwijderen">×</button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input className="field-input" value={newRolNaam} onChange={e => setNewRolNaam(e.target.value)} placeholder="Nieuwe rol naam…"
-                onKeyDown={e => { if (e.key === 'Enter') addRol(); }}
-                style={{ flex: 1, maxWidth: 280 }}/>
-              <button className="btn btn-primary btn-sm" onClick={addRol} disabled={!newRolNaam.trim()}>
-                <Icon name="plus" size={12}/> Rol toevoegen
-              </button>
-            </div>
-          </div>
-        </div>
+        {!selectedRol ? (
+          /* === Rollen overzicht === */
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12, marginBottom: 16 }}>
+              {rollen.map(r => {
+                const perms = getRolePermissions(state, r);
+                const count = perRol[r] || 0;
+                const isZorg = r === 'Zorgcoordinator';
+                return (
+                  <div key={r} className="card" style={{ cursor: 'pointer', transition: 'box-shadow .15s, border-color .15s' }}
+                    onClick={() => setSelectedRol(r)}
+                    onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                    onMouseOut={e => e.currentTarget.style.borderColor = ''}>
+                    <div style={{ padding: '18px 20px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 15 }}>{r}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                            {count} gebruiker{count !== 1 ? 's' : ''} · {perms.length} rechten
+                          </div>
+                        </div>
+                        {isZorg && <span className="badge badge-niv1" style={{ fontSize: 10 }}>Admin</span>}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {perms.slice(0, 4).map(p => (
+                          <span key={p} className="badge" style={{ fontSize: 10 }}>{(PERMISSIONS[p] || {}).label || p}</span>
+                        ))}
+                        {perms.length > 4 && <span className="badge" style={{ fontSize: 10 }}>+{perms.length - 4}</span>}
+                        {perms.length === 0 && <span className="muted" style={{ fontSize: 11 }}>Geen rechten</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
 
-        {/* Rechten per rol */}
-        <div className="card section-block">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Rechten per rol</div>
-              <div className="card-subtitle">Bepaal welke acties elke rol mag uitvoeren</div>
+              {/* Nieuwe rol kaart */}
+              <div className="card" style={{ border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120 }}>
+                <div style={{ padding: 20, textAlign: 'center', width: '100%' }}>
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <input className="field-input" value={newRolNaam} onChange={e => setNewRolNaam(e.target.value)} placeholder="Nieuwe rol…"
+                      onKeyDown={e => { if (e.key === 'Enter') addRol(); }}
+                      style={{ maxWidth: 160, textAlign: 'center' }}/>
+                    <button className="btn btn-primary btn-sm" onClick={addRol} disabled={!newRolNaam.trim()}>
+                      <Icon name="plus" size={12}/>
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 8 }}>Nieuwe rol toevoegen</div>
+                </div>
+              </div>
             </div>
           </div>
-          <div style={{ padding: '0 18px 18px' }}>
-            <div className="scroll-x">
-              <table className="settings-table" style={{ width: '100%' }}>
-                <thead>
-                  <tr>
-                    <th style={{ minWidth: 180 }}>Recht</th>
-                    {rollen.map(r => <th key={r} style={{ textAlign: 'center', minWidth: 100 }}>{r}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(PERMISSIONS).map(([key, perm]) => (
-                    <tr key={key}>
-                      <td>
-                        <div style={{ fontWeight: 600, fontSize: 12.5 }}>{perm.label}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{perm.desc}</div>
-                      </td>
-                      {rollen.map(rol => {
-                        const perms = getRolePermissions(state, rol);
-                        const checked = perms.includes(key);
-                        const isZorg = rol === 'Zorgcoordinator';
-                        return (
-                          <td key={rol} style={{ textAlign: 'center' }}>
-                            <input type="checkbox" checked={checked} disabled={isZorg}
-                              onChange={e => {
-                                togglePermission(rol, key, e.target.checked);
-                                toast(`Recht "${perm.label}" ${e.target.checked ? 'toegekend aan' : 'ingetrokken voor'} ${rol}`);
-                              }}
-                              title={isZorg ? 'Zorgcoordinator heeft altijd alle rechten' : `${checked ? 'Intrekken' : 'Toekennen'}: ${perm.label} voor ${rol}`}
-                            />
-                          </td>
-                        );
-                      })}
-                    </tr>
+        ) : (
+          /* === Rol detail: rechten bewerken === */
+          <div>
+            <button className="back-link" onClick={() => setSelectedRol(null)} style={{ marginBottom: 16 }}>
+              <Icon name="chevLeft" size={14}/> Terug naar rollen
+            </button>
+
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div style={{ padding: '20px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <h2 style={{ margin: '0 0 4px', fontSize: 20 }}>{selectedRol}</h2>
+                  <div className="muted" style={{ fontSize: 13 }}>
+                    {perRol[selectedRol] || 0} gebruiker{(perRol[selectedRol] || 0) !== 1 ? 's' : ''} met deze rol
+                    {selectedRol === 'Zorgcoordinator' && ' · Heeft altijd alle rechten'}
+                  </div>
+                </div>
+                {selectedRol !== 'Zorgcoordinator' && (perRol[selectedRol] || 0) === 0 && (
+                  <button className="btn btn-sm" style={{ color: 'var(--niv3)' }} onClick={() => { deleteRol(selectedRol); setSelectedRol(null); }}>
+                    <Icon name="trash" size={13}/> Rol verwijderen
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="card">
+              <div style={{ padding: '16px 24px 8px' }}>
+                <h3 style={{ margin: '0 0 4px', fontSize: 15 }}>Rechten</h3>
+                <p className="muted" style={{ margin: '0 0 12px', fontSize: 12 }}>Vink aan welke acties deze rol mag uitvoeren</p>
+              </div>
+              <div style={{ padding: '0 12px 16px' }}>
+                {Object.entries(PERMISSIONS).map(([key, perm]) => {
+                  const perms = getRolePermissions(state, selectedRol);
+                  const checked = perms.includes(key);
+                  const isZorg = selectedRol === 'Zorgcoordinator';
+                  return (
+                    <label key={key} className={'check-item' + (checked ? ' checked' : '')}
+                      style={{ cursor: isZorg ? 'default' : 'pointer', padding: '12px 14px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                      <input type="checkbox" checked={checked} disabled={isZorg}
+                        onChange={e => {
+                          togglePermission(selectedRol, key, e.target.checked);
+                          toast(`${e.target.checked ? '✓' : '✗'} ${perm.label}`);
+                        }}
+                        style={{ marginTop: 2 }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div className="check-label">{perm.label}</div>
+                        <div className="check-desc">{perm.desc}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {selectedRol !== 'Zorgcoordinator' && (perRol[selectedRol] || 0) > 0 && (
+              <div className="card" style={{ marginTop: 16 }}>
+                <div style={{ padding: '16px 24px 8px' }}>
+                  <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Gebruikers met deze rol</h3>
+                </div>
+                <div style={{ padding: '0 24px 16px' }}>
+                  {users.filter(u => u.rol === selectedRol).map(u => (
+                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div className="student-avatar" style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)', color: 'white', width: 28, height: 28, fontSize: 10 }}>{initials(u.naam)}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{u.naam}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>{u.email}</div>
+                      </div>
+                      <span className={'badge ' + (u.actief ? 'badge-niv1' : '')} style={{ fontSize: 10 }}>{u.actief ? 'Actief' : 'Inactief'}</span>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-            <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
-              <Icon name="info" size={13} style={{ verticalAlign: -2, marginRight: 4 }}/>
-              De Zorgcoordinator heeft altijd alle rechten. Wijzigingen worden direct opgeslagen.
-            </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </>}
 
       {editing && <UserEditModal user={editing} rollen={rollen} onCancel={() => setEditing(null)} onSave={saveUser}/>}
