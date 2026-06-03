@@ -3919,8 +3919,8 @@ function CLBOverview({ state, onOpenStudent, onUpdateStudent, onAddStudent }) {
       </div>
 
       {/* Search row */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-        <div className="search-input" style={{ flex: 1, maxWidth: 380 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+        <div className="search-input" style={{ flex: '1 1 200px', maxWidth: 380, minWidth: 0 }}>
           <Icon name="search" size={15}/>
           <input type="text" placeholder="Zoek op naam, klas of consulter…" value={query} onChange={e => setQuery(e.target.value)}/>
         </div>
