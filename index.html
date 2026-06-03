@@ -1560,11 +1560,6 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   width: calc(100vw - 32px);
   box-shadow: 0 12px 40px rgba(0,0,0,.18);
   pointer-events: auto;
-  animation: tutorialFadeIn .25s ease;
-}
-@keyframes tutorialFadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 .tutorial-tooltip h3 {
   margin: 0 0 8px;
@@ -2539,6 +2534,7 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete, can }) {
   const [tab, setTab] = React.useState('overzicht');
   const [editing, setEditing] = React.useState(false);
   const [showPdf, setShowPdf] = React.useState(false);
+  const [snapshotOnEdit, setSnapshotOnEdit] = React.useState({});
   const toast = useToast();
   const niveau = calcNiveau(student.bcodes, student.dcodes, state.thresholds, student.onderwijsvorm);
 
@@ -2548,6 +2544,25 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete, can }) {
       next.tijdlijn = [{ datum: todayISO(), ...logEntry }, ...(student.tijdlijn || [])];
     }
     onUpdate(next);
+  }
+
+  function startEditing() {
+    setSnapshotOnEdit({ hypothese: student.hypothese || '' });
+    setEditing(true);
+    toast('Bewerkingsmodus actief — pas velden aan');
+  }
+  function stopEditing() {
+    const logs = [];
+    if ((student.hypothese || '') !== snapshotOnEdit.hypothese) {
+      logs.push({ type: 'Hypothese gewijzigd', detail: student.hypothese || '(leeggemaakt)' });
+    }
+    if (logs.length > 0) {
+      const next = { ...student, laatsteUpdate: todayISO() };
+      next.tijdlijn = [...logs.map(l => ({ datum: todayISO(), ...l })), ...(student.tijdlijn || [])];
+      onUpdate(next);
+    }
+    setEditing(false);
+    toast('Wijzigingen opgeslagen');
   }
 
   return (
@@ -2573,7 +2588,7 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete, can }) {
         </div>
         <div className="detail-actions">
           {can('leerling_bewerken') && (
-            <button className={'btn ' + (editing ? 'btn-primary' : 'btn-outline')} onClick={() => { setEditing(!editing); if (editing) toast('Wijzigingen opgeslagen'); else toast('Bewerkingsmodus actief — pas velden aan'); }}>
+            <button className={'btn ' + (editing ? 'btn-primary' : 'btn-outline')} onClick={() => editing ? stopEditing() : startEditing()}>
               <Icon name={editing ? 'check' : 'edit'} size={14}/> {editing ? 'Opslaan' : 'Bewerken'}
             </button>
           )}
@@ -3173,6 +3188,8 @@ function TabContact({ student, patch, can }) {
   const [bereikbaar, setBereikbaar] = React.useState('Ja');
   const [notitie, setNotitie] = React.useState('');
   const [datum, setDatum] = React.useState(todayISO());
+  const [editingId, setEditingId] = React.useState(null);
+  const [editForm, setEditForm] = React.useState({});
 
   const log = student.contactLog || [];
 
@@ -3185,9 +3202,21 @@ function TabContact({ student, patch, can }) {
   }
   function removeEntry(id) {
     if (!confirm('Dit contact verwijderen?')) return;
-    patch({ contactLog: log.filter(e => e.id !== id) });
+    const entry = log.find(e => e.id === id);
+    patch({ contactLog: log.filter(e => e.id !== id) }, { type: 'Contact verwijderd', detail: entry ? `${entry.methode} · ${entry.metWie} · ${fmtDate(entry.datum)}` : '' });
     toast('Contact verwijderd');
   }
+  function startEdit(entry) {
+    setEditingId(entry.id);
+    setEditForm({ ...entry });
+  }
+  function saveEdit() {
+    const next = log.map(e => e.id === editingId ? { ...editForm } : e);
+    patch({ contactLog: next }, { type: 'Contact aangepast', detail: `${editForm.methode} · ${editForm.metWie} · ${fmtDate(editForm.datum)}` });
+    setEditingId(null);
+    toast('Contact bijgewerkt');
+  }
+  function cancelEdit() { setEditingId(null); }
 
   const METHODES = ['Telefonisch', 'SMS / WhatsApp', 'E-mail', 'Huisbezoek', 'Op school', 'Brief'];
   const CONTACTEN = ['Ouders', 'Moeder', 'Vader', 'Voogd', 'Leerling', 'Andere'];
@@ -3267,7 +3296,24 @@ function TabContact({ student, patch, can }) {
                 </tr>
               </thead>
               <tbody>
-                {log.map(e => (
+                {log.map(e => editingId === e.id ? (
+                  <tr key={e.id} style={{ background: 'var(--bg-subtle)' }}>
+                    <td><input type="date" className="field-input" value={editForm.datum} onChange={ev => setEditForm({ ...editForm, datum: ev.target.value })} style={{ fontSize: 12, padding: '4px 6px' }}/></td>
+                    <td><select className="field-select" value={editForm.methode} onChange={ev => setEditForm({ ...editForm, methode: ev.target.value })} style={{ fontSize: 12, padding: '4px 6px' }}>{METHODES.map(m => <option key={m}>{m}</option>)}</select></td>
+                    <td><select className="field-select" value={editForm.richting} onChange={ev => setEditForm({ ...editForm, richting: ev.target.value })} style={{ fontSize: 12, padding: '4px 6px' }}><option>Uitgaand</option><option>Inkomend</option></select></td>
+                    <td><select className="field-select" value={editForm.metWie} onChange={ev => setEditForm({ ...editForm, metWie: ev.target.value })} style={{ fontSize: 12, padding: '4px 6px' }}>{CONTACTEN.map(c => <option key={c}>{c}</option>)}</select></td>
+                    <td>
+                      <select className="field-select" value={editForm.bereikbaar} onChange={ev => setEditForm({ ...editForm, bereikbaar: ev.target.value })} style={{ fontSize: 12, padding: '4px 6px' }}>
+                        <option value="Ja">Ja</option><option value="Nee">Nee</option>
+                      </select>
+                    </td>
+                    <td><input className="field-input" value={editForm.notitie || ''} onChange={ev => setEditForm({ ...editForm, notitie: ev.target.value })} style={{ fontSize: 12, padding: '4px 6px' }}/></td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <button className="btn btn-sm" onClick={saveEdit} title="Opslaan" style={{ marginRight: 4 }}><Icon name="check" size={13}/></button>
+                      <button className="btn btn-sm" onClick={cancelEdit} title="Annuleren"><Icon name="x" size={13}/></button>
+                    </td>
+                  </tr>
+                ) : (
                   <tr key={e.id}>
                     <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(e.datum)}</td>
                     <td><span className="badge">{e.methode}</span></td>
@@ -3282,7 +3328,10 @@ function TabContact({ student, patch, can }) {
                       </span>
                     </td>
                     <td style={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.notitie || <span className="muted">—</span>}</td>
-                    <td><button className="note-delete" onClick={() => removeEntry(e.id)} title="Verwijderen"><Icon name="trash" size={13}/></button></td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {canEdit && <button className="note-delete" onClick={() => startEdit(e)} title="Bewerken" style={{ marginRight: 4 }}><Icon name="edit" size={13}/></button>}
+                      {canEdit && <button className="note-delete" onClick={() => removeEntry(e.id)} title="Verwijderen"><Icon name="trash" size={13}/></button>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -5286,33 +5335,34 @@ const TUTORIAL_STEPS = [
   },
   {
     target: '.stats-grid',
-    title: 'Dashboard statistieken',
-    text: 'Bovenaan zie je de belangrijkste cijfers: het totaal aantal leerlingen in opvolging, verdeeld over drie niveaus (groen = lichte signalen, oranje = verhoogd risico, rood = dringende opvolging).',
+    title: 'Dashboard — Kerncijfers',
+    text: 'Bovenaan zie je de belangrijkste cijfers: het totaal aantal leerlingen in opvolging, verdeeld over drie niveaus. Groen = lichte signalen, oranje = verhoogd risico, rood = dringende opvolging.',
     navigate: 'dashboard',
   },
   {
     target: '.bar-chart',
     title: 'Verdeling per onderwijsvorm',
-    text: 'Deze grafiek toont hoeveel leerlingen er per onderwijsvorm (DBSO, OKAN, enz.) in opvolging zijn en op welk niveau ze zitten.',
+    text: 'Deze grafiek toont hoeveel leerlingen er per onderwijsvorm (DBSO, OKAN, enz.) in opvolging zijn en op welk niveau ze zitten. Je kunt in één oogopslag zien waar de meeste aandacht nodig is.',
     navigate: 'dashboard',
     scrollTo: true,
   },
   {
     target: '.nav-item:nth-child(3)',
     title: 'Leerlingen overzicht',
-    text: 'Klik hier om alle leerlingen te bekijken. Je kunt filteren op onderwijsvorm, niveau, CLB-status en fase.',
+    text: 'Klik hier om het leerlingenoverzicht te openen. Dit is de centrale plek waar je alle dossiers terugvindt.',
     navigate: 'leerlingen',
+    openSidebar: true,
   },
   {
     target: '.filterbar, .filter-bar',
     title: 'Zoeken en filteren',
-    text: 'Gebruik de zoekbalk om snel een leerling te vinden op naam of klas. Met de filters kun je de lijst verder verfijnen.',
+    text: 'Gebruik de zoekbalk om snel een leerling te vinden op naam of klas. Met de filterchips kun je de lijst verfijnen op onderwijsvorm, niveau, CLB-status of fase.',
     navigate: 'leerlingen',
   },
   {
     target: '.btn-primary',
     title: 'Nieuwe leerling toevoegen',
-    text: 'Met deze knop maak je een nieuw dossier aan. Vul de naam, klas, onderwijsvorm en verzuimcodes in.',
+    text: 'Met deze knop maak je een nieuw dossier aan. Vul de naam, klas, onderwijsvorm en verzuimcodes in — het niveau wordt automatisch berekend.',
     navigate: 'leerlingen',
   },
   {
@@ -5320,65 +5370,106 @@ const TUTORIAL_STEPS = [
     title: 'Leerlingen tabel',
     text: 'In de tabel zie je alle leerlingen met hun B-codes (problematische afwezigheid), D-codes (te laat), inschaling, CLB-status en evolutie. Klik op een naam om het dossier te openen.',
     navigate: 'leerlingen',
+    scrollTo: true,
+  },
+  {
+    target: '.detail-header',
+    title: 'Leerlingdossier',
+    text: 'Dit is het dossier van een leerling. Bovenaan zie je de naam, klas, onderwijsvorm en het automatisch berekende inschalingsniveau. Met "Bewerken" kun je gegevens aanpassen, en via "PDF" exporteer je het dossier.',
+    navigateToStudent: true,
+  },
+  {
+    target: '.tabs',
+    title: 'Dossiertabs',
+    text: 'Het dossier heeft meerdere tabs: Overzicht (codes en fase), Acties & Afspraken, CLB-opvolging, Externe diensten, Contactlog, Statistieken, Tijdlijn en Opmerkingen. Elk tabblad belicht een ander aspect van de begeleiding.',
+    navigateToStudent: true,
+  },
+  {
+    target: '.timeline',
+    title: 'Tijdlijn',
+    text: 'De tijdlijn toont chronologisch alle wijzigingen: niveauveranderingen, CLB-updates, contactmomenten en meer. Elke actie wordt automatisch gelogd met de naam van de ingelogde gebruiker.',
+    navigateToStudent: true,
+    selectTab: 'tijdlijn',
+    scrollTo: true,
   },
   {
     target: '.nav-item:nth-child(4)',
     title: 'CLB Overzicht',
     text: 'Het CLB Overzicht is een spreadsheet-achtig scherm waar CLB-medewerkers snel codes kunnen aanpassen, trajecten kunnen beheren en de voortgang van alle leerlingen in één oogopslag zien.',
     navigate: 'clb',
+    openSidebar: true,
   },
   {
     target: '.nav-item:nth-child(5)',
     title: 'Statistieken',
-    text: 'Hier vind je uitgebreide statistieken en grafieken over verzuimpatronen, trends en vergelijkingen per onderwijsvorm.',
+    text: 'Op de statistiekenpagina vind je uitgebreide grafieken over verzuimpatronen, trends per periode en vergelijkingen per onderwijsvorm. Handig voor rapportages en beleidsoverleg.',
     navigate: 'statistieken',
+    openSidebar: true,
+  },
+  {
+    target: '.nav-item:nth-child(6)',
+    title: 'Gebruikersbeheer',
+    text: 'Hier beheer je de gebruikers en hun rollen. Je kunt nieuwe gebruikers aanmaken, rollen toewijzen en per rol instellen welke rechten iemand heeft (leerlingen bewerken, verwijderen, exporteren, enz.).',
+    navigate: 'gebruikers',
+    openSidebar: true,
   },
   {
     target: '.nav-item:nth-child(7)',
     title: 'Instellingen',
-    text: 'Bij Instellingen kun je de drempelwaarden voor de niveaus aanpassen, data exporteren als CSV, en demodata resetten.',
+    text: 'Bij Instellingen kun je de drempelwaarden voor de drie niveaus aanpassen per onderwijsvorm, data exporteren als CSV-bestand, en de demodata resetten.',
     navigate: 'instellingen',
+    openSidebar: true,
+  },
+  {
+    target: '.tutorial-start-btn',
+    title: 'Rondleiding herstarten',
+    text: 'Via deze knop kun je de rondleiding op elk moment opnieuw starten. Handig als je later nog eens wilt nalezen hoe alles werkt.',
   },
   {
     target: '.theme-toggle',
     title: 'Donkere modus',
-    text: 'Schakel hier tussen lichte en donkere modus. Je voorkeur wordt automatisch opgeslagen.',
+    text: 'Schakel hier tussen lichte en donkere modus. Je voorkeur wordt automatisch opgeslagen in je browser.',
   },
   {
     target: '.user-chip',
     title: 'Gebruiker wisselen',
-    text: 'Klik hier om van gebruiker te wisselen. Elke actie wordt gelogd met de naam van de ingelogde gebruiker in de tijdlijn van het dossier. Dat was de rondleiding! Je kunt deze tutorial altijd opnieuw starten via de knop in het menu.',
+    text: 'Klik hier om van gebruiker te wisselen. Elke actie wordt gelogd met de naam van de ingelogde gebruiker. Dat was de rondleiding — veel succes met de Verzuimtool!',
   },
 ];
 
 function Tutorial({ active, step, onNext, onPrev, onClose }) {
-  const [pos, setPos] = React.useState(null);
-  const stepData = TUTORIAL_STEPS[step];
+  const [display, setDisplay] = React.useState({ step: -1, pos: null, title: '', text: '' });
 
   React.useEffect(() => {
-    if (!active || !stepData) { setPos(null); return; }
+    if (!active) return;
+    const stepData = TUTORIAL_STEPS[step];
+    if (!stepData) return;
     let cancelled = false;
+    let attempts = 0;
+    const maxAttempts = 12;
     const measure = () => {
       if (cancelled) return;
       const selectors = stepData.target.split(', ');
       let el = null;
       for (const sel of selectors) { el = document.querySelector(sel); if (el) break; }
-      if (!el) { setPos(null); return; }
-      const rect = el.getBoundingClientRect();
-      const isVisible = rect.width > 0 && rect.height > 0 && rect.right > 0 && rect.left < window.innerWidth;
-      if (!isVisible) { setPos(null); return; }
+      if (!el || (() => { const r = el.getBoundingClientRect(); return r.width === 0 || r.height === 0 || r.right <= 0 || r.left >= window.innerWidth; })()) {
+        attempts++;
+        if (attempts < maxAttempts) { setTimeout(measure, 120); return; }
+        setDisplay(prev => ({ ...prev, step, title: stepData.title, text: stepData.text, pos: null }));
+        return;
+      }
       if (!stepData.scrollTo) window.scrollTo({ top: 0, behavior: 'instant' });
       else el.scrollIntoView({ behavior: 'instant', block: 'center' });
       const r = el.getBoundingClientRect();
-      setPos({ top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12 });
+      setDisplay({ step, pos: { top: r.top - 6, left: r.left - 6, width: r.width + 12, height: r.height + 12 }, title: stepData.title, text: stepData.text });
     };
-    setPos(null);
-    const t = setTimeout(measure, 80);
+    const t = setTimeout(measure, 60);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [active, step, stepData]);
+  }, [active, step]);
 
-  if (!active || !stepData) return null;
+  if (!active || display.step < 0) return null;
 
+  const { pos, title, text } = display;
   const isLast = step === TUTORIAL_STEPS.length - 1;
   const isFirst = step === 0;
 
@@ -5413,8 +5504,8 @@ function Tutorial({ active, step, onNext, onPrev, onClose }) {
             <div key={i} className={'tutorial-dot' + (i === step ? ' active' : i < step ? ' done' : '')} />
           ))}
         </div>
-        <h3>{stepData.title}</h3>
-        <p>{stepData.text}</p>
+        <h3>{title}</h3>
+        <p>{text}</p>
         <div className="tutorial-actions">
           <button className="tutorial-btn-skip" onClick={onClose}>Sluiten</button>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -5441,6 +5532,24 @@ function App() {
   const [tutorialStep, setTutorialStep] = React.useState(0);
   const toast = useToast();
 
+  function applyTutorialNav(stepData) {
+    if (stepData.navigateToStudent) {
+      const firstStudent = (state.students || [])[0];
+      if (firstStudent) setRoute('leerlingen:' + firstStudent.id);
+      if (stepData.selectTab) {
+        setTimeout(() => {
+          const tabBtn = document.querySelector('.tab');
+          const tabs = document.querySelectorAll('.tab');
+          for (const t of tabs) {
+            if (t.textContent.toLowerCase().includes(stepData.selectTab)) { t.click(); break; }
+          }
+        }, 60);
+      }
+    } else if (stepData.navigate) {
+      setRoute(stepData.navigate);
+    }
+    setSidebarOpen(!!stepData.openSidebar);
+  }
   function startTutorial() {
     setSidebarOpen(false);
     setRoute('dashboard');
@@ -5450,21 +5559,18 @@ function App() {
   function nextTutorialStep() {
     if (tutorialStep >= TUTORIAL_STEPS.length - 1) {
       setTutorialActive(false);
+      setRoute('dashboard');
       toast('Tutorial afgerond!');
       return;
     }
     const nextStep = tutorialStep + 1;
-    const nextData = TUTORIAL_STEPS[nextStep];
-    if (nextData.navigate) setRoute(nextData.navigate);
-    setSidebarOpen(false);
+    applyTutorialNav(TUTORIAL_STEPS[nextStep]);
     setTutorialStep(nextStep);
   }
   function prevTutorialStep() {
     if (tutorialStep <= 0) return;
     const prev = tutorialStep - 1;
-    const prevData = TUTORIAL_STEPS[prev];
-    if (prevData.navigate) setRoute(prevData.navigate);
-    setSidebarOpen(false);
+    applyTutorialNav(TUTORIAL_STEPS[prev]);
     setTutorialStep(prev);
   }
 
