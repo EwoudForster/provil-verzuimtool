@@ -2186,6 +2186,36 @@ function Dashboard({ state, onOpenStudent, onNavigate }) {
         <div className="card">
           <div className="card-header">
             <div>
+              <div className="card-title">Recente activiteit</div>
+              <div className="card-subtitle">Laatste 5 gewijzigde fiches</div>
+            </div>
+          </div>
+          <div className="activity-list">
+            {recent.length === 0 && (
+              <div className="empty" style={{ padding: 32 }}>
+                <div className="empty-text">Nog geen activiteit.</div>
+              </div>
+            )}
+            {recent.map(s => (
+              <div className="activity-row" key={s.id} onClick={() => onOpenStudent(s.id)}>
+                <div className="activity-icon">
+                  <Icon name="activity" size={16} />
+                </div>
+                <div className="activity-text">
+                  <div className="activity-title">{s.naam} <span className="muted" style={{ fontWeight: 400 }}>· {s.klas}</span></div>
+                  <div className="activity-meta">{s.onderwijsvorm} · bijgewerkt {fmtDate(s.laatsteUpdate)}</div>
+                </div>
+                <span className={'badge ' + nivClass(s.niveau)}>
+                  <span className="badge-dot"></span> N{s.niveau}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <div>
               <div className="card-title">Leerlingen per onderwijsvorm</div>
               <div className="card-subtitle">Verdeling over de drie niveaus</div>
             </div>
@@ -2218,36 +2248,6 @@ function Dashboard({ state, onOpenStudent, onNavigate }) {
                 );
               })}
             </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Recente activiteit</div>
-              <div className="card-subtitle">Laatste 5 gewijzigde fiches</div>
-            </div>
-          </div>
-          <div className="activity-list">
-            {recent.length === 0 && (
-              <div className="empty" style={{ padding: 32 }}>
-                <div className="empty-text">Nog geen activiteit.</div>
-              </div>
-            )}
-            {recent.map(s => (
-              <div className="activity-row" key={s.id} onClick={() => onOpenStudent(s.id)}>
-                <div className="activity-icon">
-                  <Icon name="activity" size={16} />
-                </div>
-                <div className="activity-text">
-                  <div className="activity-title">{s.naam} <span className="muted" style={{ fontWeight: 400 }}>· {s.klas}</span></div>
-                  <div className="activity-meta">{s.onderwijsvorm} · bijgewerkt {fmtDate(s.laatsteUpdate)}</div>
-                </div>
-                <span className={'badge ' + nivClass(s.niveau)}>
-                  <span className="badge-dot"></span> N{s.niveau}
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       </div>
@@ -2598,11 +2598,15 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete, can }) {
 
   const editSnapshotRef = React.useRef({});
   function startEditing() {
+    const dienstenSnap = {};
+    const cur = student.diensten || {};
+    Object.keys(cur).forEach(k => { dienstenSnap[k] = { active: !!cur[k].active, notitie: cur[k].notitie || '' }; });
     editSnapshotRef.current = {
       hypothese: student.hypothese || '',
       afsprakenConsult: student.afsprakenConsult || '',
       doelAfspraken: student.doelAfspraken || '',
       clbDoel: student.clbDoel || '',
+      diensten: dienstenSnap,
     };
     setEditing(true);
     toast('Bewerkingsmodus actief — pas velden aan');
@@ -2622,6 +2626,19 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete, can }) {
     if ((student.clbDoel || '') !== snap.clbDoel) {
       logs.push({ type: 'CLB-doel bijgewerkt', detail: (student.clbDoel || '').slice(0, 80) });
     }
+    const curDiensten = student.diensten || {};
+    const snapDiensten = snap.diensten || {};
+    const allKeys = new Set([...Object.keys(curDiensten), ...Object.keys(snapDiensten)]);
+    allKeys.forEach(k => {
+      const was = snapDiensten[k] || { active: false, notitie: '' };
+      const now = curDiensten[k] || { active: false, notitie: '' };
+      if (!!now.active !== !!was.active) {
+        logs.push({ type: now.active ? 'Externe dienst toegevoegd' : 'Externe dienst verwijderd', detail: k });
+      }
+      if ((now.notitie || '') !== (was.notitie || '')) {
+        logs.push({ type: 'Externe dienst notitie', detail: `${k}: ${now.notitie || '(leeggemaakt)'}` });
+      }
+    });
     if (logs.length > 0) {
       const next = { ...student, laatsteUpdate: todayISO() };
       next.tijdlijn = [...logs.map(l => ({ datum: todayISO(), ...l })), ...(student.tijdlijn || [])];
@@ -2683,8 +2700,8 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete, can }) {
           { id: 'extern', label: 'Externe diensten', count: Object.values(student.diensten || {}).filter(d => d.active).length },
           { id: 'contact', label: 'Contactlog', count: (student.contactLog || []).length },
           { id: 'stats', label: 'Statistieken' },
-          { id: 'tijdlijn', label: 'Tijdlijn', count: (student.tijdlijn || []).length },
           { id: 'opmerkingen', label: 'Opmerkingen', count: (student.notities || []).length },
+          { id: 'tijdlijn', label: 'Tijdlijn', count: (student.tijdlijn || []).length },
         ].map(t => (
           <button key={t.id} className={'tab' + (tab === t.id ? ' active' : '')} onClick={() => setTab(t.id)}>
             {t.label}
@@ -3214,18 +3231,11 @@ function TabExtern({ student, editing, patch, can }) {
   function toggle(key, active) {
     const cur = student.diensten || {};
     const next = { ...cur, [key]: { ...(cur[key] || {}), active } };
-    patch({ diensten: next }, { type: active ? 'Externe dienst toegevoegd' : 'Externe dienst verwijderd', detail: key });
+    patch({ diensten: next });
   }
   function setNote(key, notitie) {
     const cur = student.diensten || {};
     patch({ diensten: { ...cur, [key]: { ...(cur[key] || { active: true }), notitie } } });
-  }
-  function saveNote(key, notitie) {
-    const cur = student.diensten || {};
-    const prev = (cur[key] || {}).notitie || '';
-    if (notitie !== prev) {
-      patch({ diensten: { ...cur, [key]: { ...(cur[key] || { active: true }), notitie } } }, { type: 'Externe dienst notitie', detail: `${key}: ${notitie || '(leeggemaakt)'}` });
-    }
   }
 
   return (
@@ -3252,7 +3262,6 @@ function TabExtern({ student, editing, patch, can }) {
                     placeholder="Optionele notitie…"
                     value={entry.notitie || ''}
                     onChange={e => setNote(d.key, e.target.value)}
-                    onBlur={e => saveNote(d.key, e.target.value)}
                   />
                 ) : entry.notitie ? (
                   <div className="check-note" style={{ background: 'transparent', border: 'none', padding: '4px 0 0 30px', fontSize: 12, color: 'var(--text-muted)' }}>{entry.notitie}</div>
