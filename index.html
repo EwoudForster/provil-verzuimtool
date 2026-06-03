@@ -1538,21 +1538,18 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
 }
 .tutorial-backdrop {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.35);
+  background: rgba(0,0,0,.18);
   pointer-events: auto;
   z-index: 10000;
-}
-.tutorial-backdrop.has-highlight {
-  background: transparent;
-  pointer-events: none;
 }
 .tutorial-highlight {
   position: fixed;
   border: 3px solid #60a5fa;
   border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgba(0,0,0,.35), 0 0 0 6px rgba(96,165,250,.4);
+  box-shadow: 0 0 0 6px rgba(96,165,250,.25);
   z-index: 10001;
   pointer-events: none;
+  background: rgba(255,255,255,.07);
 }
 .tutorial-tooltip {
   position: fixed;
@@ -5571,7 +5568,7 @@ function Tutorial({ active, step, onNext, onPrev, onClose }) {
       {pos && (
         <div className="tutorial-highlight" style={pos} />
       )}
-      <div className={'tutorial-backdrop' + (pos ? ' has-highlight' : '')} />
+      <div className="tutorial-backdrop" />
       <div className="tutorial-tooltip" style={tooltipStyle}>
         <div className="tutorial-progress">
           {TUTORIAL_STEPS.map((_, i) => (
