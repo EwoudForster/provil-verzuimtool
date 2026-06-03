@@ -3220,6 +3220,13 @@ function TabExtern({ student, editing, patch, can }) {
     const cur = student.diensten || {};
     patch({ diensten: { ...cur, [key]: { ...(cur[key] || { active: true }), notitie } } });
   }
+  function saveNote(key, notitie) {
+    const cur = student.diensten || {};
+    const prev = (cur[key] || {}).notitie || '';
+    if (notitie !== prev) {
+      patch({ diensten: { ...cur, [key]: { ...(cur[key] || { active: true }), notitie } } }, { type: 'Externe dienst notitie', detail: `${key}: ${notitie || '(leeggemaakt)'}` });
+    }
+  }
 
   return (
     <div className="card card-pad">
@@ -3245,6 +3252,7 @@ function TabExtern({ student, editing, patch, can }) {
                     placeholder="Optionele notitie…"
                     value={entry.notitie || ''}
                     onChange={e => setNote(d.key, e.target.value)}
+                    onBlur={e => saveNote(d.key, e.target.value)}
                   />
                 ) : entry.notitie ? (
                   <div className="check-note" style={{ background: 'transparent', border: 'none', padding: '4px 0 0 30px', fontSize: 12, color: 'var(--text-muted)' }}>{entry.notitie}</div>
