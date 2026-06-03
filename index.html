@@ -1845,6 +1845,38 @@ const sampleStudents = () => ([
 
 const ROLLEN = ['Zorgcoordinator', 'CLB-medewerker', 'Leerkracht', 'Directie'];
 
+const PERMISSIONS = {
+  leerling_aanmaken:  { label: 'Leerlingen aanmaken', desc: 'Nieuwe dossiers registreren' },
+  leerling_bewerken:  { label: 'Dossiers bewerken', desc: 'Basisgegevens, acties en CLB-velden aanpassen' },
+  leerling_verwijderen: { label: 'Dossiers verwijderen', desc: 'Leerlingdossiers permanent verwijderen' },
+  codes_aanpassen:    { label: 'Verzuimcodes aanpassen', desc: 'B-codes en D-codes wijzigen' },
+  clb_beheren:        { label: 'CLB-opvolging beheren', desc: 'CLB-type, traject, fase en evolutie aanpassen' },
+  extern_beheren:     { label: 'Externe diensten beheren', desc: 'Externe diensten aan/uitvinken en noteren' },
+  contact_toevoegen:  { label: 'Contacten loggen', desc: 'Contactmomenten registreren en verwijderen' },
+  notities_beheren:   { label: 'Opmerkingen beheren', desc: 'Opmerkingen toevoegen en verwijderen' },
+  export_data:        { label: 'Data exporteren', desc: 'CSV/JSON/PDF-export uitvoeren' },
+  instellingen:       { label: 'Instellingen beheren', desc: 'Drempels, schooljaar en data-reset aanpassen' },
+  gebruikers_beheren: { label: 'Gebruikers beheren', desc: 'Accounts aanmaken, bewerken en verwijderen' },
+};
+
+const DEFAULT_ROLE_PERMISSIONS = {
+  'Zorgcoordinator':  Object.keys(PERMISSIONS),
+  'CLB-medewerker':   ['leerling_bewerken', 'codes_aanpassen', 'clb_beheren', 'extern_beheren', 'contact_toevoegen', 'notities_beheren', 'export_data'],
+  'Directie':         ['export_data'],
+  'Leerkracht':       ['contact_toevoegen', 'notities_beheren'],
+};
+
+function getRolePermissions(state, rol) {
+  const custom = state.rolePermissions || {};
+  return custom[rol] || DEFAULT_ROLE_PERMISSIONS[rol] || [];
+}
+
+function hasPermission(state, currentUser, perm) {
+  if (!currentUser) return false;
+  const perms = getRolePermissions(state, currentUser.rol);
+  return perms.includes(perm);
+}
+
 const sampleUsers = () => ([
   { id: 'u_' + uid(), naam: 'Sofie Vermeulen', email: 'sofie.vermeulen@clb-limburg.be', rol: 'CLB-medewerker', actief: true, laatsteLogin: '2025-10-18' },
   { id: 'u_' + uid(), naam: 'Tom De Backer', email: 'tom.debacker@clb-limburg.be', rol: 'CLB-medewerker', actief: true, laatsteLogin: '2025-10-17' },
@@ -2001,7 +2033,7 @@ function stampAuthor(next, prev, user) {
 }
 
 Object.assign(window, {
-  STORAGE_KEY, ONDERWIJSVORMEN, SCHOOL_ACTIES, CLB_ACTIES, EXTERNE_DIENSTEN, FASES, ROLLEN,
+  STORAGE_KEY, ONDERWIJSVORMEN, SCHOOL_ACTIES, CLB_ACTIES, EXTERNE_DIENSTEN, FASES, ROLLEN, PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, getRolePermissions, hasPermission,
   defaultThresholds, calcNiveau, nivLabel, nivClass, nivExplainerClass,
   todayISO, fmtDate, fmtDateTime, initials, uid, stampAuthor,
   sampleStudents, sampleUsers, defaultState, loadState, saveState,
@@ -2222,7 +2254,7 @@ window.Dashboard = Dashboard;
 
 // students.jsx — leerlingen overview
 
-function Students({ state, onOpenStudent, onCreate }) {
+function Students({ state, onOpenStudent, onCreate, can }) {
   const { students, thresholds } = state;
   const [query, setQuery] = React.useState('');
   const [fOnderwijs, setFOnderwijs] = React.useState('');
@@ -2288,9 +2320,11 @@ function Students({ state, onOpenStudent, onCreate }) {
           <h1 className="page-title">Leerlingen</h1>
           <p className="page-subtitle">{filtered.length} van {students.length} leerlingen{activeFilterCount > 0 && ` · ${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} actief`}</p>
         </div>
-        <button className="btn btn-primary" onClick={onCreate}>
-          <Icon name="plus" size={15} /> Nieuwe leerling
-        </button>
+        {can('leerling_aanmaken') && (
+          <button className="btn btn-primary" onClick={onCreate}>
+            <Icon name="plus" size={15} /> Nieuwe leerling
+          </button>
+        )}
       </div>
 
       {/* Search row */}
@@ -2491,7 +2525,7 @@ Object.assign(window, { Students, NewStudentModal });
 
 // student-detail.jsx — full student dossier with tabs
 
-function StudentDetail({ student, state, onUpdate, onBack, onDelete }) {
+function StudentDetail({ student, state, onUpdate, onBack, onDelete, can }) {
   const [tab, setTab] = React.useState('overzicht');
   const [editing, setEditing] = React.useState(false);
   const [showPdf, setShowPdf] = React.useState(false);
@@ -2528,15 +2562,21 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete }) {
           </div>
         </div>
         <div className="detail-actions">
-          <button className={'btn ' + (editing ? 'btn-primary' : 'btn-outline')} onClick={() => { setEditing(!editing); if (editing) toast('Wijzigingen opgeslagen'); else toast('Bewerkingsmodus actief — pas velden aan'); }}>
-            <Icon name={editing ? 'check' : 'edit'} size={14}/> {editing ? 'Opslaan' : 'Bewerken'}
-          </button>
-          <button className="btn" onClick={onDelete} title="Dossier verwijderen">
-            <Icon name="trash" size={14}/>
-          </button>
-          <button className="btn" onClick={() => setShowPdf(true)} title="PDF preview">
-            <Icon name="download" size={14}/> PDF
-          </button>
+          {can('leerling_bewerken') && (
+            <button className={'btn ' + (editing ? 'btn-primary' : 'btn-outline')} onClick={() => { setEditing(!editing); if (editing) toast('Wijzigingen opgeslagen'); else toast('Bewerkingsmodus actief — pas velden aan'); }}>
+              <Icon name={editing ? 'check' : 'edit'} size={14}/> {editing ? 'Opslaan' : 'Bewerken'}
+            </button>
+          )}
+          {can('leerling_verwijderen') && (
+            <button className="btn" onClick={onDelete} title="Dossier verwijderen">
+              <Icon name="trash" size={14}/>
+            </button>
+          )}
+          {can('export_data') && (
+            <button className="btn" onClick={() => setShowPdf(true)} title="PDF preview">
+              <Icon name="download" size={14}/> PDF
+            </button>
+          )}
         </div>
       </div>
       <div className="print-header">
@@ -2564,11 +2604,11 @@ function StudentDetail({ student, state, onUpdate, onBack, onDelete }) {
 
       {/* Active tab (screen) */}
       <div className="no-print">
-        {tab === 'overzicht' && <TabOverzicht student={student} state={state} editing={editing} patch={patch}/>}
-        {tab === 'acties' && <TabActies student={student} editing={editing} patch={patch}/>}
-        {tab === 'clb' && <TabCLB student={student} editing={editing} patch={patch}/>}
-        {tab === 'extern' && <TabExtern student={student} editing={editing} patch={patch}/>}
-        {tab === 'contact' && <TabContact student={student} patch={patch}/>}
+        {tab === 'overzicht' && <TabOverzicht student={student} state={state} editing={editing && can('leerling_bewerken')} patch={patch}/>}
+        {tab === 'acties' && <TabActies student={student} editing={editing && can('leerling_bewerken')} patch={patch}/>}
+        {tab === 'clb' && <TabCLB student={student} editing={editing && can('clb_beheren')} patch={patch}/>}
+        {tab === 'extern' && <TabExtern student={student} editing={editing} patch={patch} can={can}/>}
+        {tab === 'contact' && <TabContact student={student} patch={patch} can={can}/>}
         {tab === 'stats' && <TabStats student={student} state={state}/>}
         {tab === 'tijdlijn' && <TabTijdlijn student={student}/>}
         {tab === 'opmerkingen' && <TabOpmerkingen student={student} patch={patch}/>}
@@ -3070,7 +3110,8 @@ function TabCLB({ student, editing, patch }) {
   );
 }
 
-function TabExtern({ student, editing, patch }) {
+function TabExtern({ student, editing, patch, can }) {
+  const canEdit = can ? can('extern_beheren') : true;
   function toggle(key, active) {
     const cur = student.diensten || {};
     const next = { ...cur, [key]: { ...(cur[key] || {}), active } };
@@ -3090,8 +3131,8 @@ function TabExtern({ student, editing, patch }) {
           const checked = !!entry.active;
           return (
             <div key={d.key} className={'check-item' + (checked ? ' checked' : '')} style={{ flexDirection: 'column', alignItems: 'stretch', cursor: 'default' }}>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 11, cursor: 'pointer' }}>
-                <input type="checkbox" checked={checked} onChange={e => toggle(d.key, e.target.checked)}/>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 11, cursor: canEdit ? 'pointer' : 'default' }}>
+                <input type="checkbox" checked={checked} disabled={!canEdit} onChange={e => toggle(d.key, e.target.checked)}/>
                 <div style={{ flex: 1 }}>
                   <div className="check-label">{d.label}</div>
                   <div className="check-desc">{d.desc}</div>
@@ -3113,7 +3154,8 @@ function TabExtern({ student, editing, patch }) {
   );
 }
 
-function TabContact({ student, patch }) {
+function TabContact({ student, patch, can }) {
+  const canEdit = can ? can('contact_toevoegen') : true;
   const toast = useToast();
   const [methode, setMethode] = React.useState('Telefonisch');
   const [richting, setRichting] = React.useState('Uitgaand');
@@ -3143,7 +3185,7 @@ function TabContact({ student, patch }) {
   return (
     <div>
       {/* Add form */}
-      <div className="card card-pad no-print" style={{ marginBottom: 16 }}>
+      {canEdit && <div className="card card-pad no-print" style={{ marginBottom: 16 }}>
         <h4 style={{ marginTop: 0 }}>Nieuw contact registreren</h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 12 }}>
           <div>
@@ -3193,7 +3235,7 @@ function TabContact({ student, patch }) {
         <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Notitie</label>
         <textarea className="field-textarea" value={notitie} onChange={e => setNotitie(e.target.value)} placeholder="Samenvatting van het contact…" style={{ minHeight: 60, marginBottom: 10 }}/>
         <button className="btn btn-primary" onClick={addEntry}><Icon name="plus" size={14}/> Registreren</button>
-      </div>
+      </div>}
 
       {/* Log table */}
       <div className="card card-pad">
@@ -4660,7 +4702,7 @@ window.Statistieken = Statistieken;
 
 // settings.jsx — instellingen + drempels + import/export
 
-function Settings({ state, onUpdateState, onResetData }) {
+function Settings({ state, onUpdateState, onResetData, can }) {
   const toast = useToast();
   const [confirmReset, setConfirmReset] = React.useState(false);
 
@@ -4780,6 +4822,63 @@ function Settings({ state, onUpdateState, onResetData }) {
             <Icon name="trash" size={13}/> Alle data resetten
           </button>
           <p className="muted mt-2" style={{ fontSize: 12 }}>Verwijdert alle dossiers en zet de voorbeelddata terug.</p>
+        </div>
+      </div>
+
+      {/* Rechtenbeheer per rol */}
+      <div className="card section-block">
+        <div className="card-header">
+          <div>
+            <div className="card-title">Rechten per rol</div>
+            <div className="card-subtitle">Bepaal welke acties elke rol mag uitvoeren</div>
+          </div>
+        </div>
+        <div style={{ padding: '0 18px 18px' }}>
+          <div className="scroll-x">
+            <table className="settings-table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ minWidth: 180 }}>Recht</th>
+                  {ROLLEN.map(r => <th key={r} style={{ textAlign: 'center', minWidth: 100 }}>{r}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(PERMISSIONS).map(([key, perm]) => (
+                  <tr key={key}>
+                    <td>
+                      <div style={{ fontWeight: 600, fontSize: 12.5 }}>{perm.label}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{perm.desc}</div>
+                    </td>
+                    {ROLLEN.map(rol => {
+                      const perms = getRolePermissions(state, rol);
+                      const checked = perms.includes(key);
+                      const isZorg = rol === 'Zorgcoordinator';
+                      return (
+                        <td key={rol} style={{ textAlign: 'center' }}>
+                          <input type="checkbox" checked={checked} disabled={isZorg}
+                            onChange={e => {
+                              const custom = JSON.parse(JSON.stringify(state.rolePermissions || {}));
+                              const cur = custom[rol] || [...(DEFAULT_ROLE_PERMISSIONS[rol] || [])];
+                              if (e.target.checked) { cur.push(key); }
+                              else { const idx = cur.indexOf(key); if (idx >= 0) cur.splice(idx, 1); }
+                              custom[rol] = cur;
+                              onUpdateState({ rolePermissions: custom });
+                              toast(`Recht "${perm.label}" ${e.target.checked ? 'toegekend aan' : 'ingetrokken voor'} ${rol}`);
+                            }}
+                            title={isZorg ? 'Zorgcoordinator heeft altijd alle rechten' : `${checked ? 'Intrekken' : 'Toekennen'}: ${perm.label} voor ${rol}`}
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
+            <Icon name="info" size={13} style={{ verticalAlign: -2, marginRight: 4 }}/>
+            De Zorgcoordinator heeft altijd alle rechten. Wijzigingen worden direct opgeslagen.
+          </div>
         </div>
       </div>
 
@@ -5187,6 +5286,7 @@ function App() {
   const users = state.users || [];
   const currentUserId = state.currentUserId || (users.find(u => u.rol === 'Zorgcoordinator') || users[0])?.id;
   const currentUser = users.find(u => u.id === currentUserId) || users[0] || { naam: 'Onbekend', rol: '—' };
+  const can = (perm) => hasPermission(state, currentUser, perm);
 
   const updateState = (patch) => setState(s => ({ ...s, ...patch }));
   const updateStudent = (next) => setState(s => ({
@@ -5294,7 +5394,7 @@ function App() {
             <Dashboard state={state} onOpenStudent={id => setRoute('leerlingen:' + id)} onNavigate={setRoute}/>
           )}
           {route === 'leerlingen' && (
-            <Students state={state} onOpenStudent={id => setRoute('leerlingen:' + id)} onCreate={() => setShowNew(true)}/>
+            <Students state={state} onOpenStudent={id => setRoute('leerlingen:' + id)} onCreate={() => setShowNew(true)} can={can}/>
           )}
           {studentId && currentStudent && (
             <StudentDetail
@@ -5303,6 +5403,7 @@ function App() {
               onUpdate={updateStudent}
               onBack={() => setRoute('leerlingen')}
               onDelete={() => setConfirmDel(currentStudent)}
+              can={can}
             />
           )}
           {studentId && !currentStudent && (
@@ -5311,16 +5412,18 @@ function App() {
             </div>
           )}
           {route === 'clb' && (
-            <CLBOverview state={state} onOpenStudent={id => setRoute('leerlingen:' + id)} onUpdateStudent={updateStudent} onAddStudent={addStudent}/>
+            <CLBOverview state={state} onOpenStudent={id => setRoute('leerlingen:' + id)} onUpdateStudent={updateStudent} onAddStudent={addStudent} can={can}/>
           )}
           {route === 'statistieken' && (
             <Statistieken state={state}/>
           )}
           {route === 'gebruikers' && (
-            <Gebruikers state={state} onUpdateState={updateState}/>
+            can('gebruikers_beheren') ? <Gebruikers state={state} onUpdateState={updateState}/> :
+            <div className="card card-pad"><p className="muted">Je hebt geen toegang tot gebruikersbeheer.</p></div>
           )}
           {route === 'instellingen' && (
-            <Settings state={state} onUpdateState={updateState} onResetData={resetData}/>
+            can('instellingen') ? <Settings state={state} onUpdateState={updateState} onResetData={resetData} can={can}/> :
+            <div className="card card-pad"><p className="muted">Je hebt geen toegang tot instellingen.</p></div>
           )}
         </div>
       </div>
