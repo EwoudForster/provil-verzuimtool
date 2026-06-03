@@ -1538,7 +1538,6 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
 }
 .tutorial-backdrop {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.18);
   pointer-events: auto;
   z-index: 10000;
 }
@@ -1546,10 +1545,9 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   position: fixed;
   border: 3px solid #60a5fa;
   border-radius: 12px;
-  box-shadow: 0 0 0 6px rgba(96,165,250,.25);
+  box-shadow: 0 0 0 4px rgba(96,165,250,.3), 0 0 24px rgba(96,165,250,.15);
   z-index: 10001;
   pointer-events: none;
-  background: rgba(255,255,255,.07);
 }
 .tutorial-tooltip {
   position: fixed;
@@ -1560,7 +1558,7 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   padding: 20px 22px;
   max-width: 360px;
   width: calc(100vw - 32px);
-  box-shadow: 0 12px 40px rgba(0,0,0,.18);
+  box-shadow: 0 12px 40px rgba(0,0,0,.25), 0 0 0 1px rgba(0,0,0,.08);
   pointer-events: auto;
 }
 .tutorial-tooltip h3 {
