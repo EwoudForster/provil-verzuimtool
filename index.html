@@ -1843,7 +1843,12 @@ const sampleStudents = () => ([
   },
 ]);
 
-const ROLLEN = ['Zorgcoordinator', 'CLB-medewerker', 'Leerkracht', 'Directie'];
+const DEFAULT_ROLLEN = ['Zorgcoordinator', 'CLB-medewerker', 'Leerkracht', 'Directie'];
+const ROLLEN = DEFAULT_ROLLEN; // backward compat — actual rollen come from state
+
+function getRollen(state) {
+  return state.rollen || DEFAULT_ROLLEN;
+}
 
 const PERMISSIONS = {
   leerling_aanmaken:  { label: 'Leerlingen aanmaken', desc: 'Nieuwe dossiers registreren' },
@@ -4825,63 +4830,6 @@ function Settings({ state, onUpdateState, onResetData, can }) {
         </div>
       </div>
 
-      {/* Rechtenbeheer per rol */}
-      <div className="card section-block">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Rechten per rol</div>
-            <div className="card-subtitle">Bepaal welke acties elke rol mag uitvoeren</div>
-          </div>
-        </div>
-        <div style={{ padding: '0 18px 18px' }}>
-          <div className="scroll-x">
-            <table className="settings-table" style={{ width: '100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ minWidth: 180 }}>Recht</th>
-                  {ROLLEN.map(r => <th key={r} style={{ textAlign: 'center', minWidth: 100 }}>{r}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(PERMISSIONS).map(([key, perm]) => (
-                  <tr key={key}>
-                    <td>
-                      <div style={{ fontWeight: 600, fontSize: 12.5 }}>{perm.label}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{perm.desc}</div>
-                    </td>
-                    {ROLLEN.map(rol => {
-                      const perms = getRolePermissions(state, rol);
-                      const checked = perms.includes(key);
-                      const isZorg = rol === 'Zorgcoordinator';
-                      return (
-                        <td key={rol} style={{ textAlign: 'center' }}>
-                          <input type="checkbox" checked={checked} disabled={isZorg}
-                            onChange={e => {
-                              const custom = JSON.parse(JSON.stringify(state.rolePermissions || {}));
-                              const cur = custom[rol] || [...(DEFAULT_ROLE_PERMISSIONS[rol] || [])];
-                              if (e.target.checked) { cur.push(key); }
-                              else { const idx = cur.indexOf(key); if (idx >= 0) cur.splice(idx, 1); }
-                              custom[rol] = cur;
-                              onUpdateState({ rolePermissions: custom });
-                              toast(`Recht "${perm.label}" ${e.target.checked ? 'toegekend aan' : 'ingetrokken voor'} ${rol}`);
-                            }}
-                            title={isZorg ? 'Zorgcoordinator heeft altijd alle rechten' : `${checked ? 'Intrekken' : 'Toekennen'}: ${perm.label} voor ${rol}`}
-                          />
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
-            <Icon name="info" size={13} style={{ verticalAlign: -2, marginRight: 4 }}/>
-            De Zorgcoordinator heeft altijd alle rechten. Wijzigingen worden direct opgeslagen.
-          </div>
-        </div>
-      </div>
-
       <ConfirmModal
         open={confirmReset}
         title="Alle data resetten?"
@@ -4901,11 +4849,14 @@ window.Settings = Settings;
 
 function Gebruikers({ state, onUpdateState }) {
   const toast = useToast();
-  const [editing, setEditing] = React.useState(null); // user object or 'new'
+  const [editing, setEditing] = React.useState(null);
   const [confirmDel, setConfirmDel] = React.useState(null);
   const [query, setQuery] = React.useState('');
   const [fRol, setFRol] = React.useState('');
+  const [activeTab, setActiveTab] = React.useState('users'); // 'users' | 'rollen'
+  const [newRolNaam, setNewRolNaam] = React.useState('');
 
+  const rollen = getRollen(state);
   const users = state.users || [];
   const filtered = users.filter(u => {
     if (query && !u.naam.toLowerCase().includes(query.toLowerCase()) && !u.email.toLowerCase().includes(query.toLowerCase())) return false;
@@ -4937,27 +4888,70 @@ function Gebruikers({ state, onUpdateState }) {
     toast('Gebruiker verwijderd');
   }
 
+  function addRol() {
+    const naam = newRolNaam.trim();
+    if (!naam || rollen.includes(naam)) { toast('Rol bestaat al of naam is leeg'); return; }
+    const next = [...rollen, naam];
+    const perms = JSON.parse(JSON.stringify(state.rolePermissions || {}));
+    perms[naam] = [];
+    onUpdateState({ rollen: next, rolePermissions: perms });
+    setNewRolNaam('');
+    toast(`Rol "${naam}" aangemaakt`);
+  }
+
+  function deleteRol(rol) {
+    if (rol === 'Zorgcoordinator') return;
+    const usersWithRol = users.filter(u => u.rol === rol);
+    if (usersWithRol.length > 0) { toast(`Kan niet verwijderen: ${usersWithRol.length} gebruiker(s) hebben deze rol`); return; }
+    const next = rollen.filter(r => r !== rol);
+    const perms = JSON.parse(JSON.stringify(state.rolePermissions || {}));
+    delete perms[rol];
+    onUpdateState({ rollen: next, rolePermissions: perms });
+    toast(`Rol "${rol}" verwijderd`);
+  }
+
+  function togglePermission(rol, key, checked) {
+    const custom = JSON.parse(JSON.stringify(state.rolePermissions || {}));
+    const cur = custom[rol] || [...(DEFAULT_ROLE_PERMISSIONS[rol] || [])];
+    if (checked) { if (!cur.includes(key)) cur.push(key); }
+    else { const idx = cur.indexOf(key); if (idx >= 0) cur.splice(idx, 1); }
+    custom[rol] = cur;
+    onUpdateState({ rolePermissions: custom });
+  }
+
   const counts = { total: users.length, actief: users.filter(u => u.actief).length };
   const perRol = {};
-  ROLLEN.forEach(r => perRol[r] = users.filter(u => u.rol === r).length);
+  rollen.forEach(r => perRol[r] = users.filter(u => u.rol === r).length);
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Gebruikers</h1>
-          <p className="page-subtitle">{counts.total} accounts · {counts.actief} actief</p>
+          <h1 className="page-title">Gebruikers & Rollen</h1>
+          <p className="page-subtitle">{counts.total} accounts · {counts.actief} actief · {rollen.length} rollen</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setEditing({ __new: true, naam: '', email: '', rol: ROLLEN[0] })}>
-          <Icon name="plus" size={15} /> Nieuwe gebruiker
+        {activeTab === 'users' && (
+          <button className="btn btn-primary" onClick={() => setEditing({ __new: true, naam: '', email: '', rol: rollen[0] })}>
+            <Icon name="plus" size={15} /> Nieuwe gebruiker
+          </button>
+        )}
+      </div>
+
+      <div className="tabs" style={{ marginBottom: 18 }}>
+        <button className={'tab' + (activeTab === 'users' ? ' active' : '')} onClick={() => setActiveTab('users')}>
+          <Icon name="users" size={14} style={{ marginRight: 6 }}/> Gebruikers
+        </button>
+        <button className={'tab' + (activeTab === 'rollen' ? ' active' : '')} onClick={() => setActiveTab('rollen')}>
+          <Icon name="settings" size={14} style={{ marginRight: 6 }}/> Rollen & Rechten
         </button>
       </div>
 
+      {activeTab === 'users' && <>
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-        {ROLLEN.map(r => (
+        {rollen.map(r => (
           <div className="stat-card" key={r}>
             <div className="stat-label">{r}</div>
-            <div className="stat-value" style={{ fontSize: 24 }}>{perRol[r]}</div>
+            <div className="stat-value" style={{ fontSize: 24 }}>{perRol[r] || 0}</div>
             <div className="stat-meta">accounts</div>
           </div>
         ))}
@@ -4970,7 +4964,7 @@ function Gebruikers({ state, onUpdateState }) {
         </div>
         <select className="dropdown" value={fRol} onChange={e => setFRol(e.target.value)}>
           <option value="">Alle rollen</option>
-          {ROLLEN.map(r => <option key={r} value={r}>{r}</option>)}
+          {rollen.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
 
@@ -5029,7 +5023,94 @@ function Gebruikers({ state, onUpdateState }) {
         </div>
       </div>
 
-      {editing && <UserEditModal user={editing} onCancel={() => setEditing(null)} onSave={saveUser}/>}
+      </>}
+
+      {activeTab === 'rollen' && <>
+        {/* Rollen beheren */}
+        <div className="card section-block">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Rollen</div>
+              <div className="card-subtitle">Maak rollen aan of verwijder ze</div>
+            </div>
+          </div>
+          <div style={{ padding: '0 18px 18px' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+              {rollen.map(r => (
+                <div key={r} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--bg-subtle)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13 }}>{r}</span>
+                  <span className="muted" style={{ fontSize: 11 }}>({perRol[r] || 0})</span>
+                  {r !== 'Zorgcoordinator' && (
+                    <button onClick={() => deleteRol(r)} style={{ background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', padding: '0 2px', fontSize: 16, lineHeight: 1 }} title="Rol verwijderen">×</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="field-input" value={newRolNaam} onChange={e => setNewRolNaam(e.target.value)} placeholder="Nieuwe rol naam…"
+                onKeyDown={e => { if (e.key === 'Enter') addRol(); }}
+                style={{ flex: 1, maxWidth: 280 }}/>
+              <button className="btn btn-primary btn-sm" onClick={addRol} disabled={!newRolNaam.trim()}>
+                <Icon name="plus" size={12}/> Rol toevoegen
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Rechten per rol */}
+        <div className="card section-block">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Rechten per rol</div>
+              <div className="card-subtitle">Bepaal welke acties elke rol mag uitvoeren</div>
+            </div>
+          </div>
+          <div style={{ padding: '0 18px 18px' }}>
+            <div className="scroll-x">
+              <table className="settings-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th style={{ minWidth: 180 }}>Recht</th>
+                    {rollen.map(r => <th key={r} style={{ textAlign: 'center', minWidth: 100 }}>{r}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(PERMISSIONS).map(([key, perm]) => (
+                    <tr key={key}>
+                      <td>
+                        <div style={{ fontWeight: 600, fontSize: 12.5 }}>{perm.label}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{perm.desc}</div>
+                      </td>
+                      {rollen.map(rol => {
+                        const perms = getRolePermissions(state, rol);
+                        const checked = perms.includes(key);
+                        const isZorg = rol === 'Zorgcoordinator';
+                        return (
+                          <td key={rol} style={{ textAlign: 'center' }}>
+                            <input type="checkbox" checked={checked} disabled={isZorg}
+                              onChange={e => {
+                                togglePermission(rol, key, e.target.checked);
+                                toast(`Recht "${perm.label}" ${e.target.checked ? 'toegekend aan' : 'ingetrokken voor'} ${rol}`);
+                              }}
+                              title={isZorg ? 'Zorgcoordinator heeft altijd alle rechten' : `${checked ? 'Intrekken' : 'Toekennen'}: ${perm.label} voor ${rol}`}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
+              <Icon name="info" size={13} style={{ verticalAlign: -2, marginRight: 4 }}/>
+              De Zorgcoordinator heeft altijd alle rechten. Wijzigingen worden direct opgeslagen.
+            </div>
+          </div>
+        </div>
+      </>}
+
+      {editing && <UserEditModal user={editing} rollen={rollen} onCancel={() => setEditing(null)} onSave={saveUser}/>}
       <ConfirmModal
         open={!!confirmDel}
         title="Gebruiker verwijderen?"
@@ -5043,7 +5124,8 @@ function Gebruikers({ state, onUpdateState }) {
   );
 }
 
-function UserEditModal({ user, onCancel, onSave }) {
+function UserEditModal({ user, rollen, onCancel, onSave }) {
+  const rollenList = rollen || ROLLEN;
   const [form, setForm] = React.useState(user);
   const canSave = form.naam.trim() && form.email.trim() && form.rol;
   return (
@@ -5063,7 +5145,7 @@ function UserEditModal({ user, onCancel, onSave }) {
           <div className="field" style={{ margin: 0 }}>
             <label className="field-label">Rol</label>
             <select className="field-select" value={form.rol} onChange={e => setForm({ ...form, rol: e.target.value })}>
-              {ROLLEN.map(r => <option key={r} value={r}>{r}</option>)}
+              {rollenList.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
           {!user.__new && (
