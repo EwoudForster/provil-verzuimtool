@@ -602,6 +602,7 @@ input, select, textarea { font-family: inherit; font-size: inherit; color: inher
   -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow-sm);
 }
+.students-mobile { display: none; flex-direction: column; gap: 10px; }
 table.data-table {
   width: 100%;
   border-collapse: collapse;
@@ -1349,7 +1350,7 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   }
   .sidebar.open { left: 0; box-shadow: var(--shadow-lg); }
   .topbar { display: none; }
-  .content { padding: 18px 14px 48px; }
+  .content { padding: 18px 14px 48px; overflow-x: hidden; }
   .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
   .page-title { font-size: 20px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -1396,6 +1397,8 @@ html[data-theme="dark"] .data-table tr.row-niv2:hover { filter: brightness(1.2);
   .scroll-x > table.data-table { min-width: 700px; }
   .excel-wrap { display: none; }
   .clb-mobile-cards { display: flex !important; }
+  .students-desktop { display: none !important; }
+  .students-mobile { display: flex !important; }
   .tabs { -webkit-overflow-scrolling: touch; scrollbar-width: none; position: sticky; top: 0; z-index: 20; background: var(--bg); padding-top: 4px; }
   .tabs::-webkit-scrollbar { display: none; }
 }
@@ -2394,7 +2397,8 @@ function Students({ state, onOpenStudent, onCreate, can }) {
         )}
       </div>
 
-      <div className="table-wrap">
+      {/* Desktop tabel */}
+      <div className="table-wrap students-desktop">
         <div className="scroll-x">
           <table className="data-table">
             <thead>
@@ -2457,23 +2461,73 @@ function Students({ state, onOpenStudent, onCreate, can }) {
             </tbody>
           </table>
         </div>
-        {sorted.length > 0 && (
-          <div className="pagination">
-            <div>Pagina {page} van {totalPages} · {sorted.length} resultaten</div>
-            <div className="pagination-controls">
-              <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
-                <Icon name="chevLeft" size={13}/>
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 7).map(p => (
-                <button key={p} className={'page-btn' + (page === p ? ' active' : '')} onClick={() => setPage(p)}>{p}</button>
-              ))}
-              <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
-                <Icon name="chevRight" size={13}/>
-              </button>
+      </div>
+      {/* Mobiele kaarten */}
+      <div className="students-mobile">
+        {pageData.length === 0 && (
+          <div className="card card-pad">
+            <div className="empty">
+              <div className="empty-illustration"><Icon name="users" size={32}/></div>
+              <div className="empty-title">{students.length === 0 ? 'Nog geen leerlingen toegevoegd' : 'Geen resultaten'}</div>
+              <div className="empty-text">{students.length === 0 ? 'Klik op + Nieuwe leerling om te beginnen.' : 'Pas je filters aan.'}</div>
             </div>
           </div>
         )}
+        {pageData.map(s => {
+          const t = thresholds[s.onderwijsvorm] || defaultThresholds()[s.onderwijsvorm];
+          const bHigh = s.bcodes >= t.niv3.b;
+          return (
+            <div key={s.id} className="card" style={{ overflow: 'hidden', cursor: 'pointer' }} onClick={() => onOpenStudent(s.id)}>
+              <div style={{ padding: '14px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div className="student-avatar">{initials(s.naam)}</div>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{s.naam}</div>
+                      <div className="muted" style={{ fontSize: 11 }}>{s.klas} · {s.onderwijsvorm}</div>
+                    </div>
+                  </div>
+                  <span className={'badge ' + nivClass(s.niveau)}>N{s.niveau}</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                  <div style={{ background: 'var(--bg-subtle)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>B-codes</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: bHigh ? 'var(--niv3)' : 'var(--text)' }}>{s.bcodes}</div>
+                  </div>
+                  <div style={{ background: 'var(--bg-subtle)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>D-codes</div>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>{s.dcodes}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {s.fase && <span className={'badge fase-' + s.fase.toLowerCase().replace(/ /g, '-')}>{s.fase}</span>}
+                  {s.clbType && <span className="badge badge-primary">{s.clbType}</span>}
+                  {s.evolutie === 'Positief' && <span className="evo evo-pos" title="Positief"><Icon name="arrowUp" size={14}/></span>}
+                  {s.evolutie === 'Negatief' && <span className="evo evo-neg" title="Negatief"><Icon name="arrowDown" size={14}/></span>}
+                  {(s.evolutie === 'Status quo' || !s.evolutie) && <span className="evo evo-eq" title="Status quo"><Icon name="horizontal" size={14}/></span>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {sorted.length > 0 && (
+        <div className="pagination">
+          <div>Pagina {page} van {totalPages} · {sorted.length} resultaten</div>
+          <div className="pagination-controls">
+            <button className="page-btn" disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))}>
+              <Icon name="chevLeft" size={13}/>
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 7).map(p => (
+              <button key={p} className={'page-btn' + (page === p ? ' active' : '')} onClick={() => setPage(p)}>{p}</button>
+            ))}
+            <button className="page-btn" disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))}>
+              <Icon name="chevRight" size={13}/>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
